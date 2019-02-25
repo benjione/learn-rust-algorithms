@@ -36,4 +36,46 @@ impl <T> List<T> {
         }
         self.last = new_last
     }
+
+    pub fn to_vector(self) -> Vec<T> {
+        let mut ele = self.head;
+        let mut ret = Vec::<T>::new();
+        loop {
+            match ele {
+                None => return ret,
+                Some(e) => {
+                    ret.push(e.elem);
+                    ele = e.next;
+                }
+            }
+        }
+    }
+
+}
+
+#[cfg(test)]
+mod tests {
+    use super::List;
+    #[test]
+    fn test_new_list() {
+        let list = List::<u32>::new();
+        match list.head {
+            None => {},
+            _ => panic!("head should be None!"),
+        }
+        if !list.last.is_null() {
+            panic!("Has to be a null pointer!");
+        }
+    }
+
+    #[test]
+    fn test_append_and_to_vector() {
+        let mut list = List::<u32>::new();
+        list.append(1);
+        list.append(2);
+        list.append(3);
+        let vec = list.to_vector();
+        assert_eq!(vec, vec![1,2,3]);
+    }
+
 }
