@@ -50,7 +50,31 @@ impl <T> List<T> {
             }
         }
     }
+}
 
+impl <T> List<T> where T: std::cmp::Eq {
+    // pub fn remove(&mut self, data: T) -> () {
+    //     let mut ele = &mut self.head;
+    //     let mut before_ele: &mut ListLink<T> = &mut None;
+    //     loop {
+    //         match ele {
+    //             None => return,
+    //             Some(e) => {
+    //                 if e.elem == data {
+    //                     match before_ele {
+    //                         None => {},
+    //                         Some(e2) => {
+    //                             e2.next = e.next.copy();
+    //                         }
+    //                     }
+    //                     return;
+    //                 }
+    //                 before_ele = ele;
+    //                 ele = &mut e.next;
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 #[cfg(test)]
