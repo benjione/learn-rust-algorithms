@@ -1,30 +1,52 @@
 
 
 
-pub struct BinaryTree<T> {
-    root: BinaryTreeLink<T>,
+pub struct BinaryTree<'a, T> {
+    root: BinaryTreeLink<'a, T>,
 }
 
-struct TreeNode<T> {
-        left_child: BinaryTreeLink<T>,
-        right_child: BinaryTreeLink<T>,
-        data : T,
+struct TreeNode<'a, T> {
+        left_child: BinaryTreeLink<'a, T>,
+        right_child: BinaryTreeLink<'a, T>,
+        data : &'a T,
 }
 
-type BinaryTreeLink<T> = Option<Box<TreeNode<T>>>;
+type BinaryTreeLink<'a, T> = Option<Box<TreeNode<'a, T>>>;
 
 
-impl <T> TreeNode<T> {
-    pub fn new(data: T) -> Self {
+impl <'a, T> TreeNode<'a, T>
+    where T: Ord
+{
+    pub fn new(data: &'a T) -> Self {
         TreeNode{
             left_child: None,
             right_child: None,
             data: data
         }
     }
+
+    pub fn insert_data(&mut self, new_data: &'a T) {
+        if self.data == new_data {
+            return;
+        }
+        let next = if self.data < new_data {
+            &mut self.right_child
+        } else {&mut self.left_child};
+        match next {
+            &mut Some(ref mut n) => n.insert_data(new_data),
+            _ => {
+                let new_tree_node = TreeNode{left_child: None,
+                    right_child: None,
+                    data: new_data,
+                };
+                *next = Some(Box::new(new_tree_node));
+            }
+        }
+    }
+
 }
 
-impl <T> BinaryTree<T>
+impl <'a, T> BinaryTree<'a, T>
     where T: Ord
 {
     pub fn new() -> Self {
@@ -33,31 +55,19 @@ impl <T> BinaryTree<T>
         }
     }
 
-    pub fn insert_data(&mut self, new_data: T) {
+    pub fn insert_data(&mut self, new_data: &'a T) {
         match self.root {
             None => {
                 self.root = Some(Box::new(TreeNode::new(new_data)));
                 return;
             },
-            _ => {}
+            Some(ref mut tree) => {tree.insert_data(new_data);}
         }
-        let mut ele = &mut self.root;
-        let mut pre_ele: &mut BinaryTreeLink<T> = &mut None;
-        let mut new_ele:  &mut BinaryTreeLink<T> = &mut None;
-        loop {
-            match ele {
-                None => {return;},
-                Some(tree) => {
-                    if tree.data > new_data {
-                        new_ele = &mut tree.left_child;
-                    }
-                    else if tree.data < new_data {
-                         new_ele = &mut tree.right_child;
-                    }
-                }
-            }
-            // pre_ele = ele;
-            // ele = new_ele;
+    }
+
+    pub fn insert_list(&mut self, new_data_list: &'a [T]) {
+        for a in new_data_list {
+            self.insert_data(a);
         }
     }
 
@@ -73,6 +83,21 @@ mod tests {
     fn test_new_tree() {
         let tree: BinaryTree<u32> = BinaryTree::new();
         //TODO: make a compare test
+    }
+
+    #[test]
+    fn insert_data() {
+        let mut tree: BinaryTree<u32> = BinaryTree::new();
+        tree.insert_data(&1);
+        tree.insert_data(&2);
+        tree.insert_data(&3);
+        tree.insert_data(&4);
+        tree.insert_data(&5);
+        tree.insert_data(&6);
+        tree.insert_data(&7);
+        tree.insert_data(&8);
+        tree.insert_data(&9);
+
     }
 
 }
