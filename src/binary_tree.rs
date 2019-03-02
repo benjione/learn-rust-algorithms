@@ -44,6 +44,18 @@ impl <'a, T> TreeNode<'a, T>
         }
     }
 
+    pub fn inorder_traversal(&self, list: &mut Vec<&'a T>) {
+        match &self.left_child {
+            Some(child) => child.inorder_traversal(list),
+            _ => {}
+        }
+        list.push(self.data);
+        match &self.right_child {
+            Some(child) => child.inorder_traversal(list),
+            _ => {}
+        }
+    }
+
 }
 
 impl <'a, T> BinaryTree<'a, T>
@@ -67,11 +79,18 @@ impl <'a, T> BinaryTree<'a, T>
 
     pub fn insert_list(&mut self, new_data_list: &'a [T]) {
         for a in new_data_list {
-            self.insert_data(a);
+            self.insert_data(&a);
         }
     }
 
-
+    pub fn create_list(&self) -> Vec<&'a T> {
+        let mut ret: Vec<&'a T> = vec![];
+        match &self.root {
+            None => {},
+            Some(root) => root.inorder_traversal(&mut ret),
+        }
+        return ret;
+    }
 
 }
 
@@ -86,17 +105,20 @@ mod tests {
     }
 
     #[test]
-    fn insert_data() {
+    fn insert_data_and_to_list() {
         let mut tree: BinaryTree<u32> = BinaryTree::new();
-        tree.insert_data(&1);
-        tree.insert_data(&2);
-        tree.insert_data(&3);
-        tree.insert_data(&4);
-        tree.insert_data(&5);
-        tree.insert_data(&6);
-        tree.insert_data(&7);
-        tree.insert_data(&8);
-        tree.insert_data(&9);
+        let a1 = 1;
+        let a2 = 2;
+        let a3 = 3;
+        let a4 = 4;
+        let a5 = 5;
+        tree.insert_data(&a1);
+        tree.insert_data(&a2);
+        tree.insert_data(&a3);
+        tree.insert_data(&a4);
+        tree.insert_data(&a5);
+        let res = tree.create_list();
+        assert_eq!(res, [&a1, &a2, &a3,&a4, &a5 ])
 
     }
 
