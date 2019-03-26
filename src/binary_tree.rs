@@ -56,6 +56,30 @@ impl <'a, T> TreeNode<'a, T>
         }
     }
 
+    pub fn preorder_traversal(&self, list: &mut Vec<&'a T>) {
+        list.push(self.data);
+        match &self.left_child {
+            Some(child) => child.preorder_traversal(list),
+            _ => {}
+        }
+        match &self.right_child {
+            Some(child) => child.preorder_traversal(list),
+            _ => {}
+        }
+    }
+
+    pub fn postorder_traversal(&self, list: &mut Vec<&'a T>) {
+        match &self.left_child {
+            Some(child) => child.postorder_traversal(list),
+            _ => {}
+        }
+        match &self.right_child {
+            Some(child) => child.postorder_traversal(list),
+            _ => {}
+        }
+        list.push(self.data);
+    }
+
 }
 
 impl <'a, T> BinaryTree<'a, T>
@@ -83,7 +107,7 @@ impl <'a, T> BinaryTree<'a, T>
         }
     }
 
-    pub fn create_list(&self) -> Vec<&'a T> {
+    pub fn create_ordered_list(&self) -> Vec<&'a T> {
         let mut ret: Vec<&'a T> = vec![];
         match &self.root {
             None => {},
@@ -101,7 +125,9 @@ mod tests {
     #[test]
     fn test_new_tree() {
         let tree: BinaryTree<u32> = BinaryTree::new();
-        //TODO: make a compare test
+        let res = tree.create_ordered_list();
+        let expected: Vec<&u32> = [].to_vec();
+        assert_eq!(res, expected);
     }
 
     #[test]
@@ -117,9 +143,16 @@ mod tests {
         tree.insert_data(&a3);
         tree.insert_data(&a4);
         tree.insert_data(&a5);
-        let res = tree.create_list();
-        assert_eq!(res, [&a1, &a2, &a3,&a4, &a5 ])
-
+        let res = tree.create_ordered_list();
+        assert_eq!(res, [&a1, &a2, &a3,&a4, &a5 ]);
+        let mut tree2: BinaryTree<u32> = BinaryTree::new();
+        tree2.insert_data(&a5);
+        tree2.insert_data(&a2);
+        tree2.insert_data(&a1);
+        tree2.insert_data(&a4);
+        tree2.insert_data(&a3);
+        let res2 = tree2.create_ordered_list();
+        assert_eq!(res, [&a1, &a2, &a3,&a4, &a5 ]);
     }
 
 }
