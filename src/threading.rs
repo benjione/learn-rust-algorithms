@@ -4,54 +4,57 @@ extern crate rand;
 use rand::Rng;
 use std::thread;
 
+//
+// fn mergesort_helper<'a, T>(array: &'static mut [T], length: usize)
+//     where T: Ord + Copy + std::marker::Send
+// {
+//     if length <= 1 {
+//         return;
+//     }
+//     let mid = length/2;
+//     let t1 = thread::spawn(move || mergesort_helper(&mut array[0..mid], mid));
+//     let t2 = thread::spawn(move || mergesort_helper(&mut array[mid..length], length-mid));
+//     t1.join();
+//     t2.join();
+//     let mut tmp = vec!{};
+//     let mut l_count = 0;
+//     let mut r_count = mid;
+//     let mut result_count = 0;
+//     while l_count < mid {
+//         tmp.push(array[l_count]);
+//         l_count += 1;
+//     }
+//     l_count = 0;
+//     while  l_count < mid && r_count < length {
+//         if tmp[l_count] < array[r_count] {
+//             array[result_count] = tmp[l_count];
+//             l_count += 1;
+//         }
+//         else {
+//             array[result_count] = array[r_count];
+//             r_count += 1;
+//         }
+//         result_count += 1;
+//     }
+//     while l_count < mid {
+//         array[result_count] = tmp[l_count];
+//         l_count += 1;
+//         result_count += 1;
+//     }
+//
+// }
+//
+// pub fn mergesort<T>(array: &'static mut [T])
+//     where T: Ord + Copy + std::marker::Send {
+//     if array.len() == 0 {
+//         return;
+//     }
+//     mergesort_helper(array, array.len());
+// }
 
-fn mergesort_helper<'a, T>(array: &'static mut [T], length: usize)
-    where T: Ord + Copy + std::marker::Send
-{
-    if length <= 1 {
-        return;
-    }
-    let mid = length/2;
-    let t1 = thread::spawn(move || mergesort_helper(&mut array[0..mid], mid));
-    let t2 = thread::spawn(move || mergesort_helper(&mut array[mid..length], length-mid));
-    t1.join();
-    t2.join();
-    let mut tmp = vec!{};
-    let mut l_count = 0;
-    let mut r_count = mid;
-    let mut result_count = 0;
-    while l_count < mid {
-        tmp.push(array[l_count]);
-        l_count += 1;
-    }
-    l_count = 0;
-    while  l_count < mid && r_count < length {
-        if tmp[l_count] < array[r_count] {
-            array[result_count] = tmp[l_count];
-            l_count += 1;
-        }
-        else {
-            array[result_count] = array[r_count];
-            r_count += 1;
-        }
-        result_count += 1;
-    }
-    while l_count < mid {
-        array[result_count] = tmp[l_count];
-        l_count += 1;
-        result_count += 1;
-    }
-
+pub fn map_parallel() -> () {
+    
 }
-
-pub fn mergesort<T>(array: &'static mut [T])
-    where T: Ord + Copy + std::marker::Send {
-    if array.len() == 0 {
-        return;
-    }
-    mergesort_helper(array, array.len());
-}
-
 
 #[cfg(test)]
 mod tests {
