@@ -17,11 +17,16 @@ struct Worker {
 }
 
 trait FnBox {
-    fn call_box(self: Box<Self>);
+    fn call_box(self: Box<Self>) -> WorkerMsg;
 }
 
-impl<F: FnOnce()> FnBox for F {
-    fn call_box(self: Box<F>) {
+enum WorkerMsg {
+    keep_running,
+    stop,
+}
+
+impl<F: FnOnce() -> WorkerMsg> FnBox for F {
+    fn call_box(self: Box<F>) -> WorkerMsg {
         (*self)()
     }
 }
@@ -34,13 +39,22 @@ impl Worker {
             loop {
                 let job = receiver.lock().unwrap().recv().unwrap();
                 // println!("Thread nr. {} received func!", id);
-                job.call_box();
+                match job.call_box() {
+                    WorkerMsg::keep_running => {},
+                    WorkerMsg::stop => {
+                        return;
+                    },
+                };
             }
         });
         Worker{
             id,
             thread,
         }
+    }
+
+    pub fn stop(self) -> () {
+        self.thread.join();
     }
 }
 
@@ -51,7 +65,6 @@ impl ThreadPool {
         let (tx, rx): (Sender<Job>, Receiver<Job>) = mpsc::channel();
         let rx = Arc::new(Mutex::new(rx));
         for i in 0..max_threads {
-            println!("Create thread nr. {}.", i);
             vec.push(Worker::new(i, Arc::clone(&rx)))
         }
         ThreadPool{
@@ -61,13 +74,38 @@ impl ThreadPool {
         }
     }
 
+    pub fn kill_thradpool(self) -> () {
+        for a in 0..self.max_threads {
+            self.sender.send(Box::new(move || {
+                return WorkerMsg::stop;
+            })).unwrap();
+        }
+        for worker in self.thread_handle_queue {
+            worker.stop();
+        }
+    }
+
     pub fn execute<F>(&self, fun: F) -> ()
         where F: FnOnce() + Send + 'static
     {
+        let fun = || {fun(); return WorkerMsg::keep_running;};
         let job = Box::new(fun);
         self.sender.send(job).unwrap();
     }
+
+    pub fn exec_with_return_value<F,T>(&self, fun: F) -> T
+        where F: FnOnce() -> T + Send + 'static,
+        T: Send + 'static
+    {
+        let (tx, rx) = mpsc::channel();
+        self.execute(move || tx.send(fun()).unwrap());
+        let ret = rx.recv().unwrap();
+        return ret;
+    }
+
 }
+
+
 
 #[cfg(test)]
 mod tests {
@@ -80,6 +118,7 @@ mod tests {
         let (tx, rx) = super::mpsc::channel();
         threads.execute(move || {tx.send(a+1).unwrap();});
         let res = rx.recv().unwrap();
+        threads.kill_thradpool();
         assert_eq!(res, 6);
     }
 
@@ -92,6 +131,16 @@ mod tests {
             let res = rx.recv().unwrap();
             assert_eq!(res, a+1);
         }
+        threads.kill_thradpool();
+    }
+
+    #[test]
+    fn test_adding_with_ret() {
+        let threads = ThreadPool::new(4);
+        let a = 5;
+        let res = threads.exec_with_return_value(move || a+1);
+        threads.kill_thradpool();
+        assert_eq!(res, 6);
     }
 
 }
