@@ -3,6 +3,7 @@ extern crate rand;
 
 
 use rand::Rng;
+use crate::thread_pool::ThreadPool;
 
 pub fn selectionsort<T>(array: &mut [T])
     where T: Ord {
@@ -31,15 +32,10 @@ pub fn inserionsort<T>(array: &mut [T])
     }
 }
 
-fn mergesort_helper<T>(array: &mut [T], length: usize)
+fn merge<T>(array: &mut [T], mid: usize) -> ()
     where T: Ord + Copy
 {
-    if length <= 1 {
-        return;
-    }
-    let mid = length/2;
-    mergesort_helper(&mut array[0..mid], mid);
-    mergesort_helper(&mut array[mid..length], length-mid);
+    let length = array.len();
     let mut tmp = vec!{};
     let mut l_count = 0;
     let mut r_count = mid;
@@ -65,6 +61,18 @@ fn mergesort_helper<T>(array: &mut [T], length: usize)
         l_count += 1;
         result_count += 1;
     }
+}
+
+fn mergesort_helper<T>(array: &mut [T], length: usize)
+    where T: Ord + Copy
+{
+    if length <= 1 {
+        return;
+    }
+    let mid = length/2;
+    mergesort_helper(&mut array[0..mid], mid);
+    mergesort_helper(&mut array[mid..length], length-mid);
+    merge(array, mid);
 
 }
 
@@ -74,6 +82,46 @@ pub fn mergesort<T>(array: &mut [T])
         return;
     }
     mergesort_helper(array, array.len());
+}
+
+pub fn mergesort_parallel<T>(mut array: &'static mut [T], amount_threads: usize)
+    where T: Ord + Copy + Send
+{
+    if amount_threads == 0 {
+        panic!("You need at least one thread!");
+    }
+    let tpool = ThreadPool::new(amount_threads);
+    let segment_size = array.len() / amount_threads;
+    let mut disjoint_vec = vec![];
+
+    /* split vectors */
+    for _ in 0..amount_threads-1{
+        let (left, right) = array.split_at_mut(segment_size);
+        disjoint_vec.push(left);
+        array = right;
+    }
+    disjoint_vec.push(array);
+    let mut receiver_vector = vec![];
+    for part in disjoint_vec {
+        receiver_vector.push(
+            tpool.exec_with_return_value_nonblocking(
+                move || mergesort_helper(part, part.len())
+            ));
+    }
+    let mut disjoint_vec2 = vec![];
+
+    for rx in receiver_vector {
+        disjoint_vec2.push(tpool.get_return_value(rx));
+    }
+
+    //TODO: merge single parts
+    // merge(array, segment_size);
+
+
+    tpool.kill_thradpool();
+    /* reunite vectors */
+    // disjoint_vec.fold();
+
 }
 
 

@@ -93,7 +93,7 @@ impl ThreadPool {
         self.sender.send(job).unwrap();
     }
 
-    pub fn exec_with_return_value<F,T>(&self, fun: F) -> T
+    pub fn exec_with_return_value_blocking<F,T>(&self, fun: F) -> T
         where F: FnOnce() -> T + Send + 'static,
         T: Send + 'static
     {
@@ -101,6 +101,20 @@ impl ThreadPool {
         self.execute(move || tx.send(fun()).unwrap());
         let ret = rx.recv().unwrap();
         return ret;
+    }
+
+    pub fn exec_with_return_value_nonblocking<F,T>(&self, fun: F) -> mpsc::Receiver<T>
+        where F: FnOnce() -> T + Send + 'static,
+        T: Send + 'static
+    {
+        let (tx, rx) = mpsc::channel();
+        self.execute(move || tx.send(fun()).unwrap());
+        return rx;
+    }
+
+    pub fn get_return_value<T>(&self, rx: mpsc::Receiver<T>) -> T
+    {
+        return rx.recv().unwrap();
     }
 
 }
@@ -138,7 +152,7 @@ mod tests {
     fn test_adding_with_ret() {
         let threads = ThreadPool::new(4);
         let a = 5;
-        let res = threads.exec_with_return_value(move || a+1);
+        let res = threads.exec_with_return_value_blocking(move || a+1);
         threads.kill_thradpool();
         assert_eq!(res, 6);
     }
