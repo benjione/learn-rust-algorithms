@@ -1,5 +1,6 @@
 
 extern crate rand;
+extern crate crossbeam;
 
 
 use rand::Rng;
@@ -32,10 +33,9 @@ pub fn inserionsort<T>(array: &mut [T])
     }
 }
 
-fn merge<T>(array: &mut [T], mid: usize) -> ()
+fn merge<T>(array: &mut [T], mid: usize, end: usize) -> ()
     where T: Ord + Copy
 {
-    let length = array.len();
     let mut tmp = vec!{};
     let mut l_count = 0;
     let mut r_count = mid;
@@ -45,7 +45,7 @@ fn merge<T>(array: &mut [T], mid: usize) -> ()
         l_count += 1;
     }
     l_count = 0;
-    while  l_count < mid && r_count < length {
+    while  l_count < mid && r_count < end {
         if tmp[l_count] < array[r_count] {
             array[result_count] = tmp[l_count];
             l_count += 1;
@@ -72,22 +72,22 @@ fn mergesort_helper<T>(array: &mut [T], length: usize)
     let mid = length/2;
     mergesort_helper(&mut array[0..mid], mid);
     mergesort_helper(&mut array[mid..length], length-mid);
-    merge(array, mid);
+    merge(array, mid, length);
 
 }
 
-fn mergesort_helper_parallel<T>(array: &'static mut [T], length: usize) -> &'static mut [T]
-    where T: Ord + Copy
-{
-    if length <= 1 {
-        return array;
-    }
-    let mid = length/2;
-    mergesort_helper(&mut array[0..mid], mid);
-    mergesort_helper(&mut array[mid..length], length-mid);
-    merge(array, mid);
-    return array;
-}
+// fn mergesort_helper_parallel<T>(array: &'static mut [T], length: usize) -> &'static mut [T]
+//     where T: Ord + Copy
+// {
+//     if length <= 1 {
+//         return array;
+//     }
+//     let mid = length/2;
+//     mergesort_helper(&mut array[0..mid], mid);
+//     mergesort_helper(&mut array[mid..length], length-mid);
+//     merge(array, mid);
+//     return array;
+// }
 
 pub fn mergesort<T>(array: &mut [T])
     where T: Ord + Copy {
@@ -109,43 +109,40 @@ fn join_mut<'a, T>(first: &'a mut [T], second: &'a mut [T]) -> Option<&'a mut [T
     }
 }
 
-pub fn mergesort_parallel<T>(array: &'static mut [T], amount_threads: usize)
+/// Parallel implementation of the mergesort algorithm.
+/// Notes: It is not possible to use the thread_pool provided in this
+/// crate since it does not support to borrow local variables from stack.
+/// For this reason I used the crossbeam implementation. Look at the documentation
+/// [here](https://docs.rs/crossbeam-utils/*/crossbeam_utils/thread/fn.scope.html).
+pub fn mergesort_parallel<T>(array: &mut [T], amount_threads: usize)
     where T: Ord + Copy + Send
 {
     if amount_threads == 0 {
         panic!("You need at least one thread!");
     }
-    let tpool = ThreadPool::new(amount_threads);
-    let segment_size = array.len() / amount_threads;
-    let mut disjoint_vec = vec![];
-    let mut array = array;
-
-    /* split vectors */
-    for _ in 0..amount_threads-1{
-        let (left, right) = array.split_at_mut(segment_size);
-        disjoint_vec.push(left);
-        array = right;
-    }
-    disjoint_vec.push(array);
-    let mut receiver_vector = vec![];
-    for part in disjoint_vec {
-        receiver_vector.push(
-            tpool.exec_with_return_value_nonblocking(
-                move || mergesort_helper_parallel(part, part.len())
-            ));
-    }
-    // let mut disjoint_vec2 = vec![];
-
-    let mut result = tpool.get_return_value(receiver_vector.pop().unwrap());
-    for rx in receiver_vector {
-        let mid = result.len();
-        let res2 = tpool.get_return_value(rx);
-        result = join_mut(result, res2).unwrap();
-        merge(result, mid);
-        // disjoint_vec2.push(tpool.get_return_value(rx));
+    let mut segment_size = array.len() / amount_threads;
+    if segment_size == 0 {
+        segment_size = 1;
     }
 
-    tpool.kill_thradpool();
+    let length = array.len();
+    let mut total_chunks = 0;
+    crossbeam::scope(|scope| {
+        for slice in array.chunks_mut(segment_size) {
+            scope.spawn(move |_| {
+                mergesort_helper(slice, slice.len())
+            });
+            total_chunks += 1;
+        }
+    });
+    println!("threads finished");
+    if(total_chunks == 0){
+        return;
+    }
+    for c in 2..total_chunks {
+        merge(&mut array[0..c*segment_size], (c-1)*segment_size, c*segment_size);
+    }
+    merge(&mut array[0..total_chunks*segment_size], (total_chunks-1)*segment_size, length);
     /* reunite vectors */
     // disjoint_vec.fold();
 
@@ -226,8 +223,10 @@ mod tests {
 
     #[test]
     fn test_mergesort_parallel() {
-
-        // test_all_with_u32(&super::mergesort_parallel);
+        let func_to_test = |array: &mut [u32]|{
+                 super::mergesort_parallel(array, 4)
+        };
+        test_all_with_u32(&func_to_test);
     }
 
 }
