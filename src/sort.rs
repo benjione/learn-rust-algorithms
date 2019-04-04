@@ -76,6 +76,19 @@ fn mergesort_helper<T>(array: &mut [T], length: usize)
 
 }
 
+fn mergesort_helper_parallel<T>(array: &'static mut [T], length: usize) -> &'static mut [T]
+    where T: Ord + Copy
+{
+    if length <= 1 {
+        return array;
+    }
+    let mid = length/2;
+    mergesort_helper(&mut array[0..mid], mid);
+    mergesort_helper(&mut array[mid..length], length-mid);
+    merge(array, mid);
+    return array;
+}
+
 pub fn mergesort<T>(array: &mut [T])
     where T: Ord + Copy {
     if array.len() == 0 {
@@ -84,7 +97,19 @@ pub fn mergesort<T>(array: &mut [T])
     mergesort_helper(array, array.len());
 }
 
-pub fn mergesort_parallel<T>(mut array: &'static mut [T], amount_threads: usize)
+fn join_mut<'a, T>(first: &'a mut [T], second: &'a mut [T]) -> Option<&'a mut [T]> {
+    let fl = first.len();
+    if first[fl..].as_mut_ptr() == second.as_mut_ptr() {
+        unsafe {
+            Some(::std::slice::from_raw_parts_mut(first.as_mut_ptr(), fl + second.len()))
+        }
+    }
+    else {
+        None
+    }
+}
+
+pub fn mergesort_parallel<T>(array: &'static mut [T], amount_threads: usize)
     where T: Ord + Copy + Send
 {
     if amount_threads == 0 {
@@ -93,6 +118,7 @@ pub fn mergesort_parallel<T>(mut array: &'static mut [T], amount_threads: usize)
     let tpool = ThreadPool::new(amount_threads);
     let segment_size = array.len() / amount_threads;
     let mut disjoint_vec = vec![];
+    let mut array = array;
 
     /* split vectors */
     for _ in 0..amount_threads-1{
@@ -105,18 +131,19 @@ pub fn mergesort_parallel<T>(mut array: &'static mut [T], amount_threads: usize)
     for part in disjoint_vec {
         receiver_vector.push(
             tpool.exec_with_return_value_nonblocking(
-                move || mergesort_helper(part, part.len())
+                move || mergesort_helper_parallel(part, part.len())
             ));
     }
-    let mut disjoint_vec2 = vec![];
+    // let mut disjoint_vec2 = vec![];
 
+    let mut result = tpool.get_return_value(receiver_vector.pop().unwrap());
     for rx in receiver_vector {
-        disjoint_vec2.push(tpool.get_return_value(rx));
+        let mid = result.len();
+        let res2 = tpool.get_return_value(rx);
+        result = join_mut(result, res2).unwrap();
+        merge(result, mid);
+        // disjoint_vec2.push(tpool.get_return_value(rx));
     }
-
-    //TODO: merge single parts
-    // merge(array, segment_size);
-
 
     tpool.kill_thradpool();
     /* reunite vectors */
@@ -195,6 +222,12 @@ mod tests {
     #[test]
     fn test_mergesort() {
         test_all_with_u32(&super::mergesort);
+    }
+
+    #[test]
+    fn test_mergesort_parallel() {
+
+        // test_all_with_u32(&super::mergesort_parallel);
     }
 
 }
